@@ -41,6 +41,82 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
+  // Display activities with participants
+  function displayActivities(activities) {
+    const activitiesList = document.getElementById('activities-list');
+    activitiesList.innerHTML = '';
+
+    Object.entries(activities).forEach(([name, details]) => {
+      const card = document.createElement('div');
+      card.className = 'activity-card';
+      card.setAttribute('data-activity', name);
+      
+      const participantsList = details.participants.length > 0
+        ? details.participants.map(p => `<li><span class="participant-email">${p}</span><button class="delete-btn" data-email="${p}" title="Unregister">×</button></li>`).join('')
+        : '<p class="no-participants">No participants yet</p>';
+
+      card.innerHTML = `
+        <h4>${name}</h4>
+        <p><strong>Description:</strong> ${details.description}</p>
+        <p><strong>Schedule:</strong> ${details.schedule}</p>
+        <p><strong>Capacity:</strong> ${details.participants.length}/${details.max_participants}</p>
+        <div class="participants-section">
+          <h5>Signed Up Participants:</h5>
+          ${details.participants.length > 0 ? `<ul class="participants-list">${participantsList}</ul>` : participantsList}
+        </div>
+      `;
+      activitiesList.appendChild(card);
+      
+      // Add event listeners for delete buttons
+      const deleteButtons = card.querySelectorAll('.delete-btn');
+      deleteButtons.forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+          e.preventDefault();
+          const email = btn.getAttribute('data-email');
+          const activity = btn.closest('[data-activity]').getAttribute('data-activity');
+          await unregisterParticipant(activity, email);
+        });
+      });
+    });
+  }
+
+  // Function to unregister a participant
+  async function unregisterParticipant(activityName, email) {
+    try {
+      const response = await fetch(
+        `/activities/${encodeURIComponent(activityName)}/unregister?email=${encodeURIComponent(email)}`,
+        {
+          method: "DELETE",
+        }
+      );
+
+      const result = await response.json();
+
+      if (response.ok) {
+        messageDiv.textContent = result.message;
+        messageDiv.className = "success";
+        messageDiv.classList.remove("hidden");
+        
+        // Reload activities to reflect the change
+        initializeApp();
+        
+        // Hide message after 5 seconds
+        setTimeout(() => {
+          messageDiv.classList.add("hidden");
+        }, 5000);
+      } else {
+        messageDiv.textContent = result.detail || "Failed to unregister";
+        messageDiv.className = "error";
+        messageDiv.classList.remove("hidden");
+      }
+    } catch (error) {
+      messageDiv.textContent = "Failed to unregister. Please try again.";
+      messageDiv.className = "error";
+      messageDiv.classList.remove("hidden");
+      console.error("Error unregistering:", error);
+    }
+  }
+
   // Handle form submission
   signupForm.addEventListener("submit", async (event) => {
     event.preventDefault();
@@ -62,6 +138,9 @@ document.addEventListener("DOMContentLoaded", () => {
         messageDiv.textContent = result.message;
         messageDiv.className = "success";
         signupForm.reset();
+        
+        // Reload activities to reflect the change
+        initializeApp();
       } else {
         messageDiv.textContent = result.detail || "An error occurred";
         messageDiv.className = "error";
@@ -82,5 +161,25 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   // Initialize app
-  fetchActivities();
+  async function initializeApp() {
+    try {
+      const response = await fetch("/activities");
+      const activities = await response.json();
+      displayActivities(activities);
+      
+      // Populate activity dropdown
+      const activitySelect = document.getElementById("activity");
+      Object.keys(activities).forEach(name => {
+        const option = document.createElement("option");
+        option.value = name;
+        option.textContent = name;
+        activitySelect.appendChild(option);
+      });
+    } catch (error) {
+      console.error("Error initializing app:", error);
+      activitiesList.innerHTML = "<p>Failed to load activities. Please try again later.</p>";
+    }
+  }
+  
+  initializeApp();
 });
