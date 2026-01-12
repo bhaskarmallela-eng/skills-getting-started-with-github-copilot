@@ -41,6 +41,33 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
+  // Display activities with participants
+  function displayActivities(activities) {
+    const activitiesList = document.getElementById('activities-list');
+    activitiesList.innerHTML = '';
+
+    Object.entries(activities).forEach(([name, details]) => {
+      const card = document.createElement('div');
+      card.className = 'activity-card';
+      
+      const participantsList = details.participants.length > 0
+        ? details.participants.map(p => `<li>${p}</li>`).join('')
+        : '<p class="no-participants">No participants yet</p>';
+
+      card.innerHTML = `
+        <h4>${name}</h4>
+        <p><strong>Description:</strong> ${details.description}</p>
+        <p><strong>Schedule:</strong> ${details.schedule}</p>
+        <p><strong>Capacity:</strong> ${details.participants.length}/${details.max_participants}</p>
+        <div class="participants-section">
+          <h5>Signed Up Participants:</h5>
+          ${details.participants.length > 0 ? `<ul class="participants-list">${participantsList}</ul>` : participantsList}
+        </div>
+      `;
+      activitiesList.appendChild(card);
+    });
+  }
+
   // Handle form submission
   signupForm.addEventListener("submit", async (event) => {
     event.preventDefault();
@@ -82,5 +109,25 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   // Initialize app
-  fetchActivities();
+  async function initializeApp() {
+    try {
+      const response = await fetch("/activities");
+      const activities = await response.json();
+      displayActivities(activities);
+      
+      // Populate activity dropdown
+      const activitySelect = document.getElementById("activity");
+      Object.keys(activities).forEach(name => {
+        const option = document.createElement("option");
+        option.value = name;
+        option.textContent = name;
+        activitySelect.appendChild(option);
+      });
+    } catch (error) {
+      console.error("Error initializing app:", error);
+      activitiesList.innerHTML = "<p>Failed to load activities. Please try again later.</p>";
+    }
+  }
+  
+  initializeApp();
 });
